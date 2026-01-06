@@ -47,6 +47,18 @@ openssl_subject_hash() {
     fi
 }
 
+cert_already_installed() {
+    cert_path="$1"
+    cert_hash="$2"
+    for existing in "${CERT_DIR}/${cert_hash}."*; do
+        [ -f "$existing" ] || continue
+        if cmp -s "$cert_path" "$existing"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 ensure_named_certs() {
     [ -d "$RAW_CERT_DIR" ] || return 0
 
@@ -60,6 +72,7 @@ ensure_named_certs() {
 
     total=0
     copied=0
+    skipped=0
     failed=0
     failed_list=""
 
@@ -75,6 +88,12 @@ ensure_named_certs() {
             continue
         fi
 
+        if cert_already_installed "$cert" "$hash"; then
+            skipped=$((skipped + 1))
+            echo "${INSTALL_LOG_TAG} cert already installed, skipping: ${cert}"
+            continue
+        fi
+
         idx=0
         dest="${CERT_DIR}/${hash}.${idx}"
         while [ -e "$dest" ]; do
@@ -86,7 +105,7 @@ ensure_named_certs() {
         copied=$((copied + 1))
     done
 
-    echo "${INSTALL_LOG_TAG} raw certs processed: total=${total}, installed=${copied}, failed=${failed}"
+    echo "${INSTALL_LOG_TAG} raw certs processed: total=${total}, installed=${copied}, skipped=${skipped}, failed=${failed}"
     if [ "$failed" -gt 0 ]; then
         echo "${INSTALL_LOG_TAG} failed cert list:${failed_list}"
     fi

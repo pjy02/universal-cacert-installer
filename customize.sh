@@ -40,6 +40,18 @@ openssl_subject_hash() {
     fi
 }
 
+cert_already_installed() {
+    cert_path="$1"
+    cert_hash="$2"
+    for existing in "${CERT_DIR}/${cert_hash}."*; do
+        [ -f "$existing" ] || continue
+        if cmp -s "$cert_path" "$existing"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 generate_named_certs() {
     [ -d "$RAW_CERT_DIR" ] || return 0
 
@@ -57,6 +69,10 @@ generate_named_certs() {
         hash="$(openssl_subject_hash "$cert")"
         if [ -z "$hash" ]; then
             ui_print "- 无法解析证书：$cert"
+            continue
+        fi
+
+        if cert_already_installed "$cert" "$hash"; then
             continue
         fi
 
