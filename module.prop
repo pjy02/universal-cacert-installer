@@ -1,7 +1,7 @@
-id=reqable-magisk
-name=Reqable Certificate Installer
-version=v1.0
+id=universal-cacert-installer
+name=通用CA证书安装模块
+version=v1.0.1
 versionCode=1
-author=Reqable
+author=Flint
 description=Install reqable CA certificate into System CA Store.
-updateJson=https://api.reqable.com/reqable-magisk.json
+updateJson=https://raw.githubusercontent.com/pjy02/universal-cacert-installer/main/update.json
