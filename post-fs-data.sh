@@ -7,6 +7,31 @@ set -x
 
 MODDIR=${0%/*}
 
+RAW_CERT_DIR="${MODDIR}/system/etc/security/cacerts-raw"
+CERT_DIR="${MODDIR}/system/etc/security/cacerts"
+
+ensure_named_certs() {
+    [ -d "$RAW_CERT_DIR" ] || return 0
+
+    mkdir -p "$CERT_DIR"
+
+    for cert in "$RAW_CERT_DIR"/*; do
+        [ -f "$cert" ] || continue
+
+        hash="$(openssl x509 -inform PEM -subject_hash_old -in "$cert" 2>/dev/null | head -n 1)"
+        [ -n "$hash" ] || continue
+
+        idx=0
+        dest="${CERT_DIR}/${hash}.${idx}"
+        while [ -e "$dest" ]; do
+            idx=$((idx + 1))
+            dest="${CERT_DIR}/${hash}.${idx}"
+        done
+
+        cp -f "$cert" "$dest"
+    done
+}
+
 set_context() {
     [ "$(getenforce)" = "Enforcing" ] || return 0
 
@@ -20,8 +45,10 @@ set_context() {
     fi
 }
 
-chown -R 0:0 ${MODDIR}/system/etc/security/cacerts
-set_context /system/etc/security/cacerts ${MODDIR}/system/etc/security/cacerts
+ensure_named_certs
+
+chown -R 0:0 "${CERT_DIR}"
+set_context /system/etc/security/cacerts "${CERT_DIR}"
 
 # Android 14 support
 # Since Magisk ignore /apex for module file injections, use non-Magisk way
@@ -33,7 +60,7 @@ if [ -d /apex/com.android.conscrypt/cacerts ]; then
     cp -f /apex/com.android.conscrypt/cacerts/* /data/local/tmp/sys-ca-copy/
 
     # Do the same as in Magisk module
-    cp -f ${MODDIR}/system/etc/security/cacerts/* /data/local/tmp/sys-ca-copy
+    cp -f "${CERT_DIR}"/* /data/local/tmp/sys-ca-copy
     chown -R 0:0 /data/local/tmp/sys-ca-copy
     set_context /apex/com.android.conscrypt/cacerts /data/local/tmp/sys-ca-copy
 
