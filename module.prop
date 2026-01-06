@@ -4,4 +4,4 @@ version=v1.0.1
 versionCode=1
 author=Flint
 description=Install reqable CA certificate into System CA Store.
-updateJson=https://github.com/pjy02/universal-cacert-installer
+updateJson=https://raw.githubusercontent.com/pjy02/universal-cacert-installer/main/update.json
