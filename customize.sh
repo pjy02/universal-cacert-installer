@@ -88,6 +88,10 @@ generate_named_certs() {
             continue
         fi
 
+        if cert_already_installed "$cert" "$hash"; then
+            continue
+        fi
+
         idx=0
         dest="${CERT_DIR}/${hash}.${idx}"
         while [ -e "$dest" ]; do
