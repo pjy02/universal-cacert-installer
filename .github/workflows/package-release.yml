@@ -1,0 +1,35 @@
+name: Package Magisk Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.2.3)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build module package
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          PACKAGE="reqable-magisk-${VERSION}.zip"
+          zip -r "${PACKAGE}" META-INF module.prop post-fs-data.sh system README.md
+          echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
+        id: build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ inputs.version }}"
+          name: "v${{ inputs.version }}"
+          generate_release_notes: true
+          files: "${{ steps.build.outputs.package }}"
