@@ -1,0 +1,7 @@
+id=reqable-magisk
+name=Reqable Certificate Installer
+version=v1.0
+versionCode=1
+author=Reqable
+description=Install reqable CA certificate into System CA Store.
+updateJson=https://api.reqable.com/reqable-magisk.json
