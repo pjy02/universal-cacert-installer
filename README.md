@@ -1,6 +1,6 @@
-# Reqable Magisk 模块
+# Universal CA Cert Installer
 
-该模块用于将 Reqable CA 证书安装到系统证书库，并在 Android 14 上通过 APEX 目录挂载使其生效。
+该模块用于将 CA 证书安装到系统证书库，并在 Android 14 上通过 APEX 目录挂载使其生效。
 
 ## 目录结构
 

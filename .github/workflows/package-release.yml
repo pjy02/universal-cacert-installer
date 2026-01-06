@@ -21,7 +21,7 @@ jobs:
         run: |
           set -euo pipefail
           VERSION="${{ inputs.version }}"
-          PACKAGE="reqable-magisk-${VERSION}.zip"
+          PACKAGE="universal-cacert-installer-${VERSION}.zip"
           zip -r "${PACKAGE}" META-INF module.prop post-fs-data.sh system README.md
           echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
         id: build
