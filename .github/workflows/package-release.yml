@@ -22,7 +22,11 @@ jobs:
           set -euo pipefail
           VERSION="${{ inputs.version }}"
           PACKAGE="universal-cacert-installer-${VERSION}.zip"
-          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system README.md
+          mkdir -p tools/openssl
+          curl -L -o tools/openssl/openssl-arm64 \
+            https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-arm64
+          chmod +x tools/openssl/openssl-arm64
+          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md
           echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
         id: build
 

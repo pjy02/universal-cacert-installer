@@ -11,6 +11,13 @@ RAW_CERT_DIR="${MODDIR}/system/etc/security/cacerts-raw"
 CERT_DIR="${MODDIR}/system/etc/security/cacerts"
 
 find_openssl() {
+    bundled_openssl="${MODDIR}/tools/openssl/openssl-arm64"
+    if [ -x "$bundled_openssl" ]; then
+        OPENSSL_BIN="$bundled_openssl"
+        OPENSSL_SUB=""
+        return 0
+    fi
+
     if command -v openssl >/dev/null 2>&1; then
         OPENSSL_BIN="openssl"
         OPENSSL_SUB=""
