@@ -22,7 +22,7 @@ jobs:
           set -euo pipefail
           VERSION="${{ inputs.version }}"
           PACKAGE="universal-cacert-installer-${VERSION}.zip"
-          zip -r "${PACKAGE}" META-INF module.prop post-fs-data.sh system README.md
+          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system README.md
           echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
         id: build
 

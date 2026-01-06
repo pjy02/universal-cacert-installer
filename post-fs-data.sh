@@ -10,15 +10,47 @@ MODDIR=${0%/*}
 RAW_CERT_DIR="${MODDIR}/system/etc/security/cacerts-raw"
 CERT_DIR="${MODDIR}/system/etc/security/cacerts"
 
+find_openssl() {
+    if command -v openssl >/dev/null 2>&1; then
+        OPENSSL_BIN="openssl"
+        OPENSSL_SUB=""
+    elif command -v toybox >/dev/null 2>&1 && toybox openssl version >/dev/null 2>&1; then
+        OPENSSL_BIN="toybox"
+        OPENSSL_SUB="openssl"
+    else
+        OPENSSL_BIN=""
+        OPENSSL_SUB=""
+    fi
+}
+
+openssl_subject_hash() {
+    cert_path="$1"
+    if [ -z "$OPENSSL_BIN" ]; then
+        return 1
+    fi
+
+    if [ -n "$OPENSSL_SUB" ]; then
+        "$OPENSSL_BIN" "$OPENSSL_SUB" x509 -inform PEM -subject_hash_old -in "$cert_path" 2>/dev/null | head -n 1
+    else
+        "$OPENSSL_BIN" x509 -inform PEM -subject_hash_old -in "$cert_path" 2>/dev/null | head -n 1
+    fi
+}
+
 ensure_named_certs() {
     [ -d "$RAW_CERT_DIR" ] || return 0
 
     mkdir -p "$CERT_DIR"
 
+    find_openssl
+    if [ -z "$OPENSSL_BIN" ]; then
+        echo "openssl not found; skipping raw cert processing"
+        return 0
+    fi
+
     for cert in "$RAW_CERT_DIR"/*; do
         [ -f "$cert" ] || continue
 
-        hash="$(openssl x509 -inform PEM -subject_hash_old -in "$cert" 2>/dev/null | head -n 1)"
+        hash="$(openssl_subject_hash "$cert")"
         [ -n "$hash" ] || continue
 
         idx=0
