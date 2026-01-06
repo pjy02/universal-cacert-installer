@@ -1,0 +1,39 @@
+name: Package Magisk Module
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Release version (e.g. 1.2.3)"
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build module package
+        run: |
+          set -euo pipefail
+          VERSION="${{ inputs.version }}"
+          PACKAGE="universal-cacert-installer-${VERSION}.zip"
+          mkdir -p tools/openssl
+          curl -L -o tools/openssl/openssl-arm64 \
+            https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-arm64
+          chmod +x tools/openssl/openssl-arm64
+          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md
+          echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
+        id: build
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: "v${{ inputs.version }}"
+          name: "v${{ inputs.version }}"
+          generate_release_notes: true
+          files: "${{ steps.build.outputs.package }}"
