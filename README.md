@@ -5,12 +5,13 @@
 ## 目录结构
 
 - `system/etc/security/cacerts/`：已按 `hash.N` 命名的系统证书文件。
-- `system/etc/security/cacerts-raw/`：可选目录，放置未命名的 PEM 证书，安装时会自动转换为 `hash.N` 并复制到 `cacerts/`。
+- `cacerts-raw/`：可选目录，放置未命名的 PEM 证书，安装时会自动转换为 `hash.N` 并复制到 `system/etc/security/cacerts/`。
 
 ## 使用说明
 
 1. 如果你的证书已经是 `hash.N` 命名，请直接放入 `system/etc/security/cacerts/`。
-2. 如果证书未命名，请放入 `system/etc/security/cacerts-raw/`，模块安装时会自动生成对应的 `hash.N` 文件。
+2. 如果证书未命名，请放入 `cacerts-raw/`，模块安装时会自动生成对应的 `hash.N` 文件。
+3. 安装时如果检测到旧模块证书，会提示是否导入：音量+ 导入，音量- 跳过；导入后可选择“复制并替换”或“复制并保留两个证书”。提示会等待约 10 秒，超时默认导入。
 
 ## 注意事项
 
