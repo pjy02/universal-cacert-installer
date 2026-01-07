@@ -165,16 +165,16 @@ maybe_import_old_certs() {
     ui_print " "
     ui_print "${INSTALL_LOG_TAG} 检测到旧证书，可选择导入到新模块"
     ui_print "${INSTALL_LOG_TAG} 音量+：导入旧证书  音量-：跳过导入"
-    if ! chooseport_compat; then
+    if ! chooseport_compat "导入旧证书" "跳过导入"; then
         ui_print "${INSTALL_LOG_TAG} 已选择跳过旧证书导入"
         return 0
     fi
 
-    sleep 2
+    sleep 1
 
     ui_print "${INSTALL_LOG_TAG} 选择导入方式"
     ui_print "${INSTALL_LOG_TAG} 音量+：复制并替换  音量-：复制并保留两个证书"
-    if chooseport_compat; then
+    if chooseport_compat "复制并替换" "复制并保留两个证书"; then
         mode="replace"
     else
         mode="preserve"
@@ -197,10 +197,12 @@ chooseport_compat() {
     timeout_s=10
     start_time="$(date +%s)"
     end_time=$((start_time + timeout_s))
+    primary_label="${1:-确认}"
+    secondary_label="${2:-取消}"
 
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
-    ui_print "  [+] 音量上: 确认/复制并替换"
-    ui_print "  [-] 音量下: 取消/保留两者"
+    ui_print "  [+] 音量上: ${primary_label}"
+    ui_print "  [-] 音量下: ${secondary_label}"
     if command -v timeout >/dev/null 2>&1; then
         timeout 0.5 getevent -qlc 20 >/dev/null 2>&1
     fi
