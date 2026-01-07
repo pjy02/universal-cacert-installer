@@ -23,10 +23,19 @@ jobs:
           VERSION="${{ inputs.version }}"
           PACKAGE="universal-cacert-installer-${VERSION}.zip"
           mkdir -p tools/openssl
+          curl -L -o tools/openssl/openssl-arm \
+            https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-arm
           curl -L -o tools/openssl/openssl-arm64 \
             https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-arm64
+          curl -L -o tools/openssl/openssl-x64 \
+            https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-x64
+          curl -L -o tools/openssl/openssl-x86 \
+            https://github.com/Zackptg5/Cross-Compiled-Binaries-Android/raw/refs/heads/master/openssl/openssl-x86
+          chmod +x tools/openssl/openssl-arm
           chmod +x tools/openssl/openssl-arm64
-          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md
+          chmod +x tools/openssl/openssl-x64
+          chmod +x tools/openssl/openssl-x86
+          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md cacerts-raw
           echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
         id: build
 

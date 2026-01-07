@@ -1,6 +1,6 @@
 {
-  "versionCode": 10300,
-  "version": "1.0.3",
-  "zipUrl": "https://github.com/pjy02/universal-cacert-installer/releases/download/v1.0.3/universal-cacert-installer-1.0.3.zip",
+  "versionCode": 20008,
+  "version": "2.0.8",
+  "zipUrl": "https://github.com/pjy02/universal-cacert-installer/releases/download/v2.0.8/universal-cacert-installer-2.0.8.zip",
   "changelog": "https://raw.githubusercontent.com/pjy02/universal-cacert-installer/main/changelog.md"
 }
