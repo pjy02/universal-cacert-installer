@@ -7,7 +7,7 @@ set -x
 
 MODDIR=${0%/*}
 
-RAW_CERT_DIR="${MODDIR}/system/etc/security/cacerts-raw"
+RAW_CERT_DIR="${MODDIR}/cacerts-raw"
 CERT_DIR="${MODDIR}/system/etc/security/cacerts"
 INSTALL_LOG_TAG="[Universal CA]"
 

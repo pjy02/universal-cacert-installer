@@ -1,11 +1,11 @@
 #!/system/bin/sh
 
-RAW_CERT_DIR="${MODPATH}/system/etc/security/cacerts-raw"
+RAW_CERT_DIR="${MODPATH}/cacerts-raw"
 CERT_DIR="${MODPATH}/system/etc/security/cacerts"
 INSTALL_LOG_TAG="[Universal CA]"
 OLD_MODULE_DIR="/data/adb/modules/universal-cacert-installer"
 OLD_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts"
-OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts-raw"
+OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/cacerts-raw"
 
 find_openssl() {
     bundled_openssl=""
