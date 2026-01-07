@@ -206,16 +206,10 @@ chooseport_compat() {
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
     ui_print "  [+] 音量上: ${primary_label}"
     ui_print "  [-] 音量下: ${secondary_label}"
-    if command -v timeout >/dev/null 2>&1; then
-        timeout 0.5 getevent -qlc 20 >/dev/null 2>&1
-    fi
+    getevent -qlc 20 -t 1 >/dev/null 2>&1 || true
     if command -v getevent >/dev/null 2>&1; then
         while [ "$(date +%s)" -lt "$end_time" ]; do
-            if command -v timeout >/dev/null 2>&1; then
-                event="$(timeout 1 getevent -qlc 1 2>/dev/null)"
-            else
-                event="$(getevent -qlc 1 2>/dev/null)"
-            fi
+            event="$(getevent -qlc 1 -t 1 2>/dev/null)"
             echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
             echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
         done
