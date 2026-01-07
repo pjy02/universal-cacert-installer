@@ -7,6 +7,7 @@ OLD_MODULE_DIR="/data/adb/modules/universal-cacert-installer"
 OLD_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts"
 OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/cacerts-raw"
 OLD_RAW_CERT_DIR_LEGACY="${OLD_MODULE_DIR}/system/etc/security/cacerts-raw"
+GETEVENT_BIN=""
 
 find_openssl() {
     bundled_openssl=""
@@ -53,6 +54,21 @@ find_openssl() {
         OPENSSL_BIN=""
         OPENSSL_SUB=""
     fi
+}
+
+find_getevent() {
+    GETEVENT_BIN=""
+    if command -v getevent >/dev/null 2>&1; then
+        GETEVENT_BIN="getevent"
+        return 0
+    fi
+
+    if [ -x /system/bin/getevent ]; then
+        GETEVENT_BIN="/system/bin/getevent"
+        return 0
+    fi
+
+    return 1
 }
 
 openssl_subject_hash() {
@@ -158,11 +174,10 @@ maybe_import_old_certs() {
     [ -d "$OLD_MODULE_DIR" ] || return 0
     has_old_certs || return 0
 
-    if ! command -v getevent >/dev/null 2>&1; then
+    if ! find_getevent; then
         ui_print "${INSTALL_LOG_TAG} 未检测到音量键支持，跳过交互"
         return 0
     fi
-
     ui_print " "
     ui_print "${INSTALL_LOG_TAG} 检测到旧证书，可选择导入到新模块"
     ui_print "${INSTALL_LOG_TAG} 音量+：导入旧证书  音量-：跳过导入"
@@ -206,10 +221,16 @@ chooseport_compat() {
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
     ui_print "  [+] 音量上: ${primary_label}"
     ui_print "  [-] 音量下: ${secondary_label}"
-    getevent -qlc 20 -t 1 >/dev/null 2>&1 || true
-    if command -v getevent >/dev/null 2>&1; then
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 0.5 "$GETEVENT_BIN" -qlc 20 >/dev/null 2>&1
+    fi
+    if [ -n "$GETEVENT_BIN" ]; then
         while [ "$(date +%s)" -lt "$end_time" ]; do
-            event="$(getevent -qlc 1 -t 1 2>/dev/null)"
+            if command -v timeout >/dev/null 2>&1; then
+                event="$(timeout 1 "$GETEVENT_BIN" -qlc 1 2>/dev/null)"
+            else
+                event="$("$GETEVENT_BIN" -qlc 1 2>/dev/null)"
+            fi
             echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
             echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
         done
