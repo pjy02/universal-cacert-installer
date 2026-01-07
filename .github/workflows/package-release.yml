@@ -35,7 +35,7 @@ jobs:
           chmod +x tools/openssl/openssl-arm64
           chmod +x tools/openssl/openssl-x64
           chmod +x tools/openssl/openssl-x86
-          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md
+          zip -r "${PACKAGE}" META-INF module.prop customize.sh post-fs-data.sh system tools README.md cacerts-raw
           echo "package=${PACKAGE}" >> "$GITHUB_OUTPUT"
         id: build
 
