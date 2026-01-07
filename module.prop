@@ -1,7 +1,7 @@
 id=universal-cacert-installer
 name=通用CA证书安装模块
-version=v2.0.9
-versionCode=20009
+version=v2.1.0
+versionCode=20100
 author=Flint
 description=将 CA 证书安装到系统证书库。
 updateJson=https://raw.githubusercontent.com/pjy02/universal-cacert-installer/main/update.json
