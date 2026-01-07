@@ -9,6 +9,7 @@ MODDIR=${0%/*}
 
 RAW_CERT_DIR="${MODDIR}/system/etc/security/cacerts-raw"
 CERT_DIR="${MODDIR}/system/etc/security/cacerts"
+INSTALL_LOG_TAG="[Universal CA]"
 
 find_openssl() {
     bundled_openssl="${MODDIR}/tools/openssl/openssl-arm64"
@@ -46,6 +47,18 @@ openssl_subject_hash() {
     fi
 }
 
+cert_already_installed() {
+    cert_path="$1"
+    cert_hash="$2"
+    for existing in "${CERT_DIR}/${cert_hash}."*; do
+        [ -f "$existing" ] || continue
+        if cmp -s "$cert_path" "$existing"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
 ensure_named_certs() {
     [ -d "$RAW_CERT_DIR" ] || return 0
 
@@ -53,15 +66,33 @@ ensure_named_certs() {
 
     find_openssl
     if [ -z "$OPENSSL_BIN" ]; then
-        echo "openssl not found; skipping raw cert processing"
+        echo "${INSTALL_LOG_TAG} openssl not found; skipping raw cert processing"
         return 0
     fi
 
+    total=0
+    copied=0
+    skipped=0
+    failed=0
+    failed_list=""
+
     for cert in "$RAW_CERT_DIR"/*; do
         [ -f "$cert" ] || continue
+        total=$((total + 1))
 
         hash="$(openssl_subject_hash "$cert")"
-        [ -n "$hash" ] || continue
+        if [ -z "$hash" ]; then
+            failed=$((failed + 1))
+            failed_list="${failed_list} ${cert}"
+            echo "${INSTALL_LOG_TAG} failed to parse cert: ${cert}"
+            continue
+        fi
+
+        if cert_already_installed "$cert" "$hash"; then
+            skipped=$((skipped + 1))
+            echo "${INSTALL_LOG_TAG} cert already installed, skipping: ${cert}"
+            continue
+        fi
 
         idx=0
         dest="${CERT_DIR}/${hash}.${idx}"
@@ -71,7 +102,13 @@ ensure_named_certs() {
         done
 
         cp -f "$cert" "$dest"
+        copied=$((copied + 1))
     done
+
+    echo "${INSTALL_LOG_TAG} raw certs processed: total=${total}, installed=${copied}, skipped=${skipped}, failed=${failed}"
+    if [ "$failed" -gt 0 ]; then
+        echo "${INSTALL_LOG_TAG} failed cert list:${failed_list}"
+    fi
 }
 
 set_context() {
@@ -89,12 +126,14 @@ set_context() {
 
 ensure_named_certs
 
+echo "${INSTALL_LOG_TAG} applying ownership and SELinux context"
 chown -R 0:0 "${CERT_DIR}"
 set_context /system/etc/security/cacerts "${CERT_DIR}"
 
 # Android 14 support
 # Since Magisk ignore /apex for module file injections, use non-Magisk way
 if [ -d /apex/com.android.conscrypt/cacerts ]; then
+    echo "${INSTALL_LOG_TAG} detected APEX CACerts, preparing tmpfs overlay"
     # Clone directory into tmpfs
     rm -f /data/local/tmp/sys-ca-copy
     mkdir -p /data/local/tmp/sys-ca-copy
@@ -109,14 +148,16 @@ if [ -d /apex/com.android.conscrypt/cacerts ]; then
     # Mount directory inside APEX if it is valid, and remove temporary one.
     CERTS_NUM="$(ls -1 /data/local/tmp/sys-ca-copy | wc -l)"
     if [ "$CERTS_NUM" -gt 10 ]; then
+        echo "${INSTALL_LOG_TAG} bind-mounting updated CA store into APEX"
         mount --bind /data/local/tmp/sys-ca-copy /apex/com.android.conscrypt/cacerts
         for pid in 1 $(pgrep zygote) $(pgrep zygote64); do
             nsenter --mount=/proc/${pid}/ns/mnt -- \
                 mount --bind /data/local/tmp/sys-ca-copy /apex/com.android.conscrypt/cacerts
         done
     else
-        echo "Cancelling replacing CA storage due to safety"
+        echo "${INSTALL_LOG_TAG} cancelling CA replacement due to safety (count=${CERTS_NUM})"
     fi
     umount /data/local/tmp/sys-ca-copy
     rmdir /data/local/tmp/sys-ca-copy
+    echo "${INSTALL_LOG_TAG} APEX CA handling complete"
 fi
