@@ -194,13 +194,13 @@ maybe_import_old_certs() {
 }
 
 chooseport_compat() {
-    timeout_s="${VOLUME_KEY_TIMEOUT:-15}"
+    timeout_s=10
     if command -v chooseport >/dev/null 2>&1; then
         if command -v timeout >/dev/null 2>&1; then
             timeout "$timeout_s" chooseport
             if [ "$?" -eq 124 ]; then
-                ui_print "${INSTALL_LOG_TAG} 等待超时，默认跳过"
-                return 1
+                ui_print "${INSTALL_LOG_TAG} 等待超时，默认导入旧证书"
+                return 0
             fi
             return $?
         fi
@@ -220,8 +220,8 @@ chooseport_compat() {
         echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
         elapsed=$((elapsed + 1))
     done
-    ui_print "${INSTALL_LOG_TAG} 等待超时，默认跳过"
-    return 1
+    ui_print "${INSTALL_LOG_TAG} 等待超时，默认导入旧证书"
+    return 0
 }
 
 generate_named_certs() {
