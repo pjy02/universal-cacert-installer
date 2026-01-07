@@ -195,6 +195,8 @@ maybe_import_old_certs() {
 
 chooseport_compat() {
     timeout_s=10
+    start_time="$(date +%s)"
+    end_time=$((start_time + timeout_s))
     if command -v chooseport >/dev/null 2>&1; then
         if command -v timeout >/dev/null 2>&1; then
             timeout "$timeout_s" chooseport
@@ -212,15 +214,19 @@ chooseport_compat() {
         return 1
     fi
 
-    ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择..."
-    elapsed=0
-    while [ "$elapsed" -lt "$timeout_s" ]; do
-        event="$(getevent -qlc 1 -t 1 2>/dev/null | head -n 1)"
+    ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
+    ui_print "  [+] 音量上: 确认"
+    ui_print "  [-] 音量下: 取消"
+    while [ "$(date +%s)" -lt "$end_time" ]; do
+        if command -v timeout >/dev/null 2>&1; then
+            event="$(timeout 1 getevent -qlc 1 2>&1)"
+        else
+            event="$(getevent -qlc 1 -t 1 2>&1)"
+        fi
         echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
         echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
-        elapsed=$((elapsed + 1))
     done
-    ui_print "${INSTALL_LOG_TAG} 等待超时，默认导入旧证书"
+    ui_print "${INSTALL_LOG_TAG} ⏳ 等待超时，默认导入旧证书"
     return 0
 }
 
