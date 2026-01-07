@@ -6,7 +6,6 @@ INSTALL_LOG_TAG="[Universal CA]"
 OLD_MODULE_DIR="/data/adb/modules/universal-cacert-installer"
 OLD_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts"
 OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/cacerts-raw"
-OLD_RAW_CERT_DIR_LEGACY="${OLD_MODULE_DIR}/system/etc/security/cacerts-raw"
 GETEVENT_BIN=""
 
 find_openssl() {
@@ -109,7 +108,7 @@ raw_cert_already_installed() {
 }
 
 has_old_certs() {
-    for existing in "${OLD_CERT_DIR}"/* "${OLD_RAW_CERT_DIR}"/* "${OLD_RAW_CERT_DIR_LEGACY}"/*; do
+    for existing in "${OLD_CERT_DIR}"/* "${OLD_RAW_CERT_DIR}"/*; do
         [ -f "$existing" ] || continue
         [ "$(basename "$existing")" = ".gitkeep" ] && continue
         return 0
@@ -202,12 +201,10 @@ maybe_import_old_certs() {
         copy_old_named_cert "$cert" "$mode"
     done
 
-    for raw_dir in "${OLD_RAW_CERT_DIR}" "${OLD_RAW_CERT_DIR_LEGACY}"; do
-        for cert in "${raw_dir}"/*; do
-            [ -f "$cert" ] || continue
-            [ "$(basename "$cert")" = ".gitkeep" ] && continue
-            copy_old_raw_cert "$cert" "$mode"
-        done
+    for cert in "${OLD_RAW_CERT_DIR}"/*; do
+        [ -f "$cert" ] || continue
+        [ "$(basename "$cert")" = ".gitkeep" ] && continue
+        copy_old_raw_cert "$cert" "$mode"
     done
 }
 
