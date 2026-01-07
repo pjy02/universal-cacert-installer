@@ -8,16 +8,39 @@ OLD_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts"
 OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts-raw"
 
 find_openssl() {
-    bundled_openssl="${MODPATH}/tools/openssl/openssl-arm64"
-    if [ -f "$bundled_openssl" ]; then
-        chmod 0755 "$bundled_openssl" 2>/dev/null || true
-    fi
+    bundled_openssl=""
+    device_abi="$(getprop ro.product.cpu.abi 2>/dev/null)"
+    case "$device_abi" in
+        arm64-v8a|aarch64)
+            bundled_openssl="${MODPATH}/tools/openssl/openssl-arm64"
+            ;;
+        armeabi*|armv7*)
+            bundled_openssl="${MODPATH}/tools/openssl/openssl-arm"
+            ;;
+        x86_64)
+            bundled_openssl="${MODPATH}/tools/openssl/openssl-x64"
+            ;;
+        x86)
+            bundled_openssl="${MODPATH}/tools/openssl/openssl-x86"
+            ;;
+    esac
 
-    if [ -x "$bundled_openssl" ]; then
-        OPENSSL_BIN="$bundled_openssl"
-        OPENSSL_SUB=""
-        return 0
-    fi
+    for candidate in \
+        "$bundled_openssl" \
+        "${MODPATH}/tools/openssl/openssl-arm64" \
+        "${MODPATH}/tools/openssl/openssl-arm" \
+        "${MODPATH}/tools/openssl/openssl-x64" \
+        "${MODPATH}/tools/openssl/openssl-x86"; do
+        [ -n "$candidate" ] || continue
+        if [ -f "$candidate" ]; then
+            chmod 0755 "$candidate" 2>/dev/null || true
+        fi
+        if [ -x "$candidate" ]; then
+            OPENSSL_BIN="$candidate"
+            OPENSSL_SUB=""
+            return 0
+        fi
+    done
 
     if command -v openssl >/dev/null 2>&1; then
         OPENSSL_BIN="openssl"
@@ -171,7 +194,16 @@ maybe_import_old_certs() {
 }
 
 chooseport_compat() {
+    timeout_s="${VOLUME_KEY_TIMEOUT:-15}"
     if command -v chooseport >/dev/null 2>&1; then
+        if command -v timeout >/dev/null 2>&1; then
+            timeout "$timeout_s" chooseport
+            if [ "$?" -eq 124 ]; then
+                ui_print "${INSTALL_LOG_TAG} 等待超时，默认跳过"
+                return 1
+            fi
+            return $?
+        fi
         chooseport
         return $?
     fi
@@ -181,11 +213,15 @@ chooseport_compat() {
     fi
 
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择..."
-    while true; do
-        event="$(getevent -qlc 1 2>/dev/null | head -n 1)"
+    elapsed=0
+    while [ "$elapsed" -lt "$timeout_s" ]; do
+        event="$(getevent -qlc 1 -t 1 2>/dev/null | head -n 1)"
         echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
         echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
+        elapsed=$((elapsed + 1))
     done
+    ui_print "${INSTALL_LOG_TAG} 等待超时，默认跳过"
+    return 1
 }
 
 generate_named_certs() {

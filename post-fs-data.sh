@@ -12,15 +12,39 @@ CERT_DIR="${MODDIR}/system/etc/security/cacerts"
 INSTALL_LOG_TAG="[Universal CA]"
 
 find_openssl() {
-    bundled_openssl="${MODDIR}/tools/openssl/openssl-arm64"
-    if [ -f "$bundled_openssl" ]; then
-        chmod 0755 "$bundled_openssl" 2>/dev/null || true
-    fi
-    if [ -x "$bundled_openssl" ]; then
-        OPENSSL_BIN="$bundled_openssl"
-        OPENSSL_SUB=""
-        return 0
-    fi
+    bundled_openssl=""
+    device_abi="$(getprop ro.product.cpu.abi 2>/dev/null)"
+    case "$device_abi" in
+        arm64-v8a|aarch64)
+            bundled_openssl="${MODDIR}/tools/openssl/openssl-arm64"
+            ;;
+        armeabi*|armv7*)
+            bundled_openssl="${MODDIR}/tools/openssl/openssl-arm"
+            ;;
+        x86_64)
+            bundled_openssl="${MODDIR}/tools/openssl/openssl-x64"
+            ;;
+        x86)
+            bundled_openssl="${MODDIR}/tools/openssl/openssl-x86"
+            ;;
+    esac
+
+    for candidate in \
+        "$bundled_openssl" \
+        "${MODDIR}/tools/openssl/openssl-arm64" \
+        "${MODDIR}/tools/openssl/openssl-arm" \
+        "${MODDIR}/tools/openssl/openssl-x64" \
+        "${MODDIR}/tools/openssl/openssl-x86"; do
+        [ -n "$candidate" ] || continue
+        if [ -f "$candidate" ]; then
+            chmod 0755 "$candidate" 2>/dev/null || true
+        fi
+        if [ -x "$candidate" ]; then
+            OPENSSL_BIN="$candidate"
+            OPENSSL_SUB=""
+            return 0
+        fi
+    done
 
     if command -v openssl >/dev/null 2>&1; then
         OPENSSL_BIN="openssl"
@@ -125,6 +149,9 @@ set_context() {
 }
 
 ensure_named_certs
+
+CERTS_COUNT="$(ls -1 "${CERT_DIR}" 2>/dev/null | grep -v '^\\.gitkeep$' | wc -l)"
+echo "${INSTALL_LOG_TAG} final cert count: ${CERTS_COUNT}"
 
 echo "${INSTALL_LOG_TAG} applying ownership and SELinux context"
 chown -R 0:0 "${CERT_DIR}"
