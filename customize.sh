@@ -2,6 +2,10 @@
 
 RAW_CERT_DIR="${MODPATH}/system/etc/security/cacerts-raw"
 CERT_DIR="${MODPATH}/system/etc/security/cacerts"
+INSTALL_LOG_TAG="[Universal CA]"
+OLD_MODULE_DIR="/data/adb/modules/universal-cacert-installer"
+OLD_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts"
+OLD_RAW_CERT_DIR="${OLD_MODULE_DIR}/system/etc/security/cacerts-raw"
 
 find_openssl() {
     bundled_openssl="${MODPATH}/tools/openssl/openssl-arm64"
@@ -40,6 +44,150 @@ openssl_subject_hash() {
     fi
 }
 
+cert_already_installed() {
+    cert_path="$1"
+    cert_hash="$2"
+    for existing in "${CERT_DIR}/${cert_hash}."*; do
+        [ -f "$existing" ] || continue
+        if cmp -s "$cert_path" "$existing"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+raw_cert_already_installed() {
+    cert_path="$1"
+    for existing in "${RAW_CERT_DIR}"/*; do
+        [ -f "$existing" ] || continue
+        [ "$(basename "$existing")" = ".gitkeep" ] && continue
+        if cmp -s "$cert_path" "$existing"; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+has_old_certs() {
+    for existing in "${OLD_CERT_DIR}"/* "${OLD_RAW_CERT_DIR}"/*; do
+        [ -f "$existing" ] || continue
+        [ "$(basename "$existing")" = ".gitkeep" ] && continue
+        return 0
+    done
+    return 1
+}
+
+copy_old_raw_cert() {
+    source_path="$1"
+    mode="$2"
+    filename="$(basename "$source_path")"
+
+    mkdir -p "$RAW_CERT_DIR"
+
+    if raw_cert_already_installed "$source_path"; then
+        ui_print "${INSTALL_LOG_TAG} raw 证书已存在，跳过：$filename"
+        return 0
+    fi
+
+    dest="${RAW_CERT_DIR}/${filename}"
+    if [ -e "$dest" ] && [ "$mode" = "preserve" ]; then
+        idx=0
+        dest="${RAW_CERT_DIR}/${filename}.${idx}"
+        while [ -e "$dest" ]; do
+            idx=$((idx + 1))
+            dest="${RAW_CERT_DIR}/${filename}.${idx}"
+        done
+    fi
+
+    cp -f "$source_path" "$dest"
+    ui_print "${INSTALL_LOG_TAG} 已复制 raw 证书：$filename"
+}
+
+copy_old_named_cert() {
+    source_path="$1"
+    mode="$2"
+    filename="$(basename "$source_path")"
+    cert_hash="${filename%%.*}"
+
+    mkdir -p "$CERT_DIR"
+
+    if cert_already_installed "$source_path" "$cert_hash"; then
+        ui_print "${INSTALL_LOG_TAG} 证书已存在，跳过：$filename"
+        return 0
+    fi
+
+    dest="${CERT_DIR}/${filename}"
+    if [ -e "$dest" ] && [ "$mode" = "preserve" ]; then
+        idx=0
+        dest="${CERT_DIR}/${cert_hash}.${idx}"
+        while [ -e "$dest" ]; do
+            idx=$((idx + 1))
+            dest="${CERT_DIR}/${cert_hash}.${idx}"
+        done
+    fi
+
+    cp -f "$source_path" "$dest"
+    ui_print "${INSTALL_LOG_TAG} 已复制证书：$filename"
+}
+
+maybe_import_old_certs() {
+    [ -d "$OLD_MODULE_DIR" ] || return 0
+    has_old_certs || return 0
+
+    if ! command -v chooseport >/dev/null 2>&1 && ! command -v getevent >/dev/null 2>&1; then
+        ui_print "${INSTALL_LOG_TAG} 未检测到音量键选择功能，跳过旧证书导入"
+        return 0
+    fi
+
+    ui_print " "
+    ui_print "${INSTALL_LOG_TAG} 检测到旧证书，可选择导入到新模块"
+    ui_print "${INSTALL_LOG_TAG} 音量+：导入旧证书  音量-：跳过导入"
+    chooseport_compat
+    if [ "$?" -ne 0 ]; then
+        ui_print "${INSTALL_LOG_TAG} 已选择跳过旧证书导入"
+        return 0
+    fi
+
+    ui_print "${INSTALL_LOG_TAG} 选择导入方式"
+    ui_print "${INSTALL_LOG_TAG} 音量+：复制并替换  音量-：复制并保留两个证书"
+    chooseport_compat
+    if [ "$?" -eq 0 ]; then
+        mode="replace"
+    else
+        mode="preserve"
+    fi
+
+    for cert in "${OLD_CERT_DIR}"/*; do
+        [ -f "$cert" ] || continue
+        [ "$(basename "$cert")" = ".gitkeep" ] && continue
+        copy_old_named_cert "$cert" "$mode"
+    done
+
+    for cert in "${OLD_RAW_CERT_DIR}"/*; do
+        [ -f "$cert" ] || continue
+        [ "$(basename "$cert")" = ".gitkeep" ] && continue
+        copy_old_raw_cert "$cert" "$mode"
+    done
+}
+
+chooseport_compat() {
+    if command -v chooseport >/dev/null 2>&1; then
+        chooseport
+        return $?
+    fi
+
+    if ! command -v getevent >/dev/null 2>&1; then
+        return 1
+    fi
+
+    ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择..."
+    while true; do
+        event="$(getevent -qlc 1 2>/dev/null | head -n 1)"
+        echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
+        echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
+    done
+}
+
 generate_named_certs() {
     [ -d "$RAW_CERT_DIR" ] || return 0
 
@@ -47,16 +195,31 @@ generate_named_certs() {
 
     find_openssl
     if [ -z "$OPENSSL_BIN" ]; then
-        ui_print "- 未找到 openssl，跳过 cacerts-raw 处理"
+        ui_print "${INSTALL_LOG_TAG} 未找到 openssl，跳过 cacerts-raw 处理"
         return 0
     fi
 
+    total=0
+    copied=0
+    skipped=0
+    failed=0
+    failed_list=""
+
     for cert in "$RAW_CERT_DIR"/*; do
         [ -f "$cert" ] || continue
+        total=$((total + 1))
 
         hash="$(openssl_subject_hash "$cert")"
         if [ -z "$hash" ]; then
-            ui_print "- 无法解析证书：$cert"
+            failed=$((failed + 1))
+            failed_list="${failed_list} ${cert}"
+            ui_print "${INSTALL_LOG_TAG} 无法解析证书：$cert"
+            continue
+        fi
+
+        if cert_already_installed "$cert" "$hash"; then
+            skipped=$((skipped + 1))
+            ui_print "${INSTALL_LOG_TAG} 证书已存在，跳过：$cert"
             continue
         fi
 
@@ -68,9 +231,16 @@ generate_named_certs() {
         done
 
         cp -f "$cert" "$dest"
+        copied=$((copied + 1))
     done
+
+    ui_print "${INSTALL_LOG_TAG} raw 证书处理完成：总数=${total}，已安装=${copied}，已跳过=${skipped}，失败=${failed}"
+    if [ "$failed" -gt 0 ]; then
+        ui_print "${INSTALL_LOG_TAG} 失败证书列表:${failed_list}"
+    fi
 }
 
+maybe_import_old_certs
 generate_named_certs
 
 if [ ! -e /data/adb/metamodule ]; then
