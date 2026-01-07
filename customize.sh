@@ -197,37 +197,38 @@ chooseport_compat() {
     timeout_s=10
     start_time="$(date +%s)"
     end_time=$((start_time + timeout_s))
-    if command -v chooseport >/dev/null 2>&1; then
-        if command -v timeout >/dev/null 2>&1; then
-            timeout "$timeout_s" chooseport
-            if [ "$?" -eq 124 ]; then
-                ui_print "${INSTALL_LOG_TAG} 等待超时，默认导入旧证书"
-                return 0
-            fi
-            return $?
-        fi
-        chooseport
-        return $?
-    fi
-
-    if ! command -v getevent >/dev/null 2>&1; then
-        return 1
-    fi
 
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
     ui_print "  [+] 音量上: 确认"
     ui_print "  [-] 音量下: 取消"
-    while [ "$(date +%s)" -lt "$end_time" ]; do
-        if command -v timeout >/dev/null 2>&1; then
-            event="$(timeout 1 getevent -qlc 1 2>&1)"
-        else
-            event="$(getevent -qlc 1 -t 1 2>&1)"
+    if command -v getevent >/dev/null 2>&1; then
+        while [ "$(date +%s)" -lt "$end_time" ]; do
+            if command -v timeout >/dev/null 2>&1; then
+                event="$(timeout 1 getevent -qlc 1 2>/dev/null)"
+            else
+                event="$(getevent -qlc 1 -t 1 2>/dev/null)"
+            fi
+            echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
+            echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
+        done
+        ui_print "${INSTALL_LOG_TAG} ⏳ 等待超时，默认导入旧证书"
+        return 0
+    fi
+
+    if ! command -v chooseport >/dev/null 2>&1; then
+        return 1
+    fi
+
+    if command -v timeout >/dev/null 2>&1; then
+        timeout "$timeout_s" chooseport >/dev/null 2>&1
+        if [ "$?" -eq 124 ]; then
+            ui_print "${INSTALL_LOG_TAG} ⏳ 等待超时，默认导入旧证书"
+            return 0
         fi
-        echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
-        echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
-    done
-    ui_print "${INSTALL_LOG_TAG} ⏳ 等待超时，默认导入旧证书"
-    return 0
+        return $?
+    fi
+    chooseport
+    return $?
 }
 
 generate_named_certs() {
