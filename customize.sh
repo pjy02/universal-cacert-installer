@@ -157,24 +157,24 @@ maybe_import_old_certs() {
     [ -d "$OLD_MODULE_DIR" ] || return 0
     has_old_certs || return 0
 
-    if ! command -v chooseport >/dev/null 2>&1 && ! command -v getevent >/dev/null 2>&1; then
-        ui_print "${INSTALL_LOG_TAG} 未检测到音量键选择功能，跳过旧证书导入"
+    if ! command -v getevent >/dev/null 2>&1; then
+        ui_print "${INSTALL_LOG_TAG} 未检测到音量键支持，跳过交互"
         return 0
     fi
 
     ui_print " "
     ui_print "${INSTALL_LOG_TAG} 检测到旧证书，可选择导入到新模块"
     ui_print "${INSTALL_LOG_TAG} 音量+：导入旧证书  音量-：跳过导入"
-    chooseport_compat
-    if [ "$?" -ne 0 ]; then
+    if ! chooseport_compat; then
         ui_print "${INSTALL_LOG_TAG} 已选择跳过旧证书导入"
         return 0
     fi
 
+    sleep 2
+
     ui_print "${INSTALL_LOG_TAG} 选择导入方式"
     ui_print "${INSTALL_LOG_TAG} 音量+：复制并替换  音量-：复制并保留两个证书"
-    chooseport_compat
-    if [ "$?" -eq 0 ]; then
+    if chooseport_compat; then
         mode="replace"
     else
         mode="preserve"
@@ -199,14 +199,17 @@ chooseport_compat() {
     end_time=$((start_time + timeout_s))
 
     ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择 (等待${timeout_s}秒)..."
-    ui_print "  [+] 音量上: 确认"
-    ui_print "  [-] 音量下: 取消"
+    ui_print "  [+] 音量上: 确认/复制并替换"
+    ui_print "  [-] 音量下: 取消/保留两者"
+    if command -v timeout >/dev/null 2>&1; then
+        timeout 0.5 getevent -qlc 20 >/dev/null 2>&1
+    fi
     if command -v getevent >/dev/null 2>&1; then
         while [ "$(date +%s)" -lt "$end_time" ]; do
             if command -v timeout >/dev/null 2>&1; then
                 event="$(timeout 1 getevent -qlc 1 2>/dev/null)"
             else
-                event="$(getevent -qlc 1 -t 1 2>/dev/null)"
+                event="$(getevent -qlc 1 2>/dev/null)"
             fi
             echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
             echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
@@ -215,20 +218,7 @@ chooseport_compat() {
         return 0
     fi
 
-    if ! command -v chooseport >/dev/null 2>&1; then
-        return 1
-    fi
-
-    if command -v timeout >/dev/null 2>&1; then
-        timeout "$timeout_s" chooseport >/dev/null 2>&1
-        if [ "$?" -eq 124 ]; then
-            ui_print "${INSTALL_LOG_TAG} ⏳ 等待超时，默认导入旧证书"
-            return 0
-        fi
-        return $?
-    fi
-    chooseport
-    return $?
+    return 1
 }
 
 generate_named_certs() {
