@@ -134,7 +134,7 @@ maybe_import_old_certs() {
     [ -d "$OLD_MODULE_DIR" ] || return 0
     has_old_certs || return 0
 
-    if ! command -v chooseport >/dev/null 2>&1; then
+    if ! command -v chooseport >/dev/null 2>&1 && ! command -v getevent >/dev/null 2>&1; then
         ui_print "${INSTALL_LOG_TAG} 未检测到音量键选择功能，跳过旧证书导入"
         return 0
     fi
@@ -142,7 +142,7 @@ maybe_import_old_certs() {
     ui_print " "
     ui_print "${INSTALL_LOG_TAG} 检测到旧证书，可选择导入到新模块"
     ui_print "${INSTALL_LOG_TAG} 音量+：导入旧证书  音量-：跳过导入"
-    chooseport
+    chooseport_compat
     if [ "$?" -ne 0 ]; then
         ui_print "${INSTALL_LOG_TAG} 已选择跳过旧证书导入"
         return 0
@@ -150,7 +150,7 @@ maybe_import_old_certs() {
 
     ui_print "${INSTALL_LOG_TAG} 选择导入方式"
     ui_print "${INSTALL_LOG_TAG} 音量+：复制并替换  音量-：复制并保留两个证书"
-    chooseport
+    chooseport_compat
     if [ "$?" -eq 0 ]; then
         mode="replace"
     else
@@ -167,6 +167,24 @@ maybe_import_old_certs() {
         [ -f "$cert" ] || continue
         [ "$(basename "$cert")" = ".gitkeep" ] && continue
         copy_old_raw_cert "$cert" "$mode"
+    done
+}
+
+chooseport_compat() {
+    if command -v chooseport >/dev/null 2>&1; then
+        chooseport
+        return $?
+    fi
+
+    if ! command -v getevent >/dev/null 2>&1; then
+        return 1
+    fi
+
+    ui_print "${INSTALL_LOG_TAG} 请按音量键进行选择..."
+    while true; do
+        event="$(getevent -qlc 1 2>/dev/null | head -n 1)"
+        echo "$event" | grep -q "KEY_VOLUMEUP" && return 0
+        echo "$event" | grep -q "KEY_VOLUMEDOWN" && return 1
     done
 }
 
