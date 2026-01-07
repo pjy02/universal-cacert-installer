@@ -1,5 +1,9 @@
 # 更新记录
 
+## v2.1.4
+- 安装时对 /dev/input/event* 指定读取，提升音量键识别可靠性。
+- 更新版本号与发布元数据。
+
 ## v2.1.3
 - 安装时补充 getevent 路径探测，确保音量键选择生效。
 - 移除 system/etc/security/cacerts-raw 目录占位。
