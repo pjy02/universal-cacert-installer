@@ -17,4 +17,4 @@
 
 - 证书需为 PEM 格式。
 - 安装后脚本会将证书目录挂载到系统证书库（Android 14 为 APEX 目录）。
-- KernelSU 需要安装元模块（例如 meta-overlayfs）才能挂载模块文件。
+- 部分 KernelSU 环境可能需要安装元模块（例如 meta-overlayfs）才能挂载模块文件，如遇挂载失败请安装后重启。

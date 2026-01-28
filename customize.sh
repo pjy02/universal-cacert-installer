@@ -291,9 +291,26 @@ generate_named_certs() {
 }
 
 maybe_import_old_certs
+
+log_named_certs() {
+    [ -d "$CERT_DIR" ] || return 0
+
+    total=0
+    for cert in "$CERT_DIR"/*; do
+        [ -f "$cert" ] || continue
+        [ "$(basename "$cert")" = ".gitkeep" ] && continue
+        total=$((total + 1))
+    done
+
+    if [ "$total" -gt 0 ]; then
+        ui_print "${INSTALL_LOG_TAG} 检测到模块内已预置证书：${total} 个 (system/etc/security/cacerts)"
+    fi
+}
+
+log_named_certs
 generate_named_certs
 
 if [ ! -e /data/adb/metamodule ]; then
-    ui_print "- 检测到未安装元模块，模块文件不会被挂载"
-    ui_print "- 请安装 meta-overlayfs 等元模块后重启"
+    ui_print "- 未检测到元模块，部分设备可能无法挂载模块文件"
+    ui_print "- 如遇挂载失败，请安装 meta-overlayfs 等元模块后重启"
 fi
